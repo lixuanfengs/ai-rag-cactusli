@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>解析仓库</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', '微软雅黑', sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 300px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #1E90FF;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #4169E1;
+        }
+        #status {
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>上传Git仓库</h1>
+    <form id="uploadForm">
+        <div class="form-group">
+            <input type="text" id="repoUrl" placeholder="Git仓库地址" required>
+        </div>
+        <div class="form-group">
+            <input type="text" id="userName" placeholder="用户名" required>
+        </div>
+        <div class="form-group">
+            <input type="password" id="token" placeholder="密码/Token" required>
+        </div>
+        <button type="submit">提交</button>
+    </form>
+    <div id="status"></div>
+</div>
+
+<div class="overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+</div>
+
+<script>
+    const loadingOverlay = document.getElementById('loadingOverlay');
+
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const repoUrl = document.getElementById('repoUrl').value;
+        const userName = document.getElementById('userName').value;
+        const token = document.getElementById('token').value;
+
+        loadingOverlay.style.display = 'flex';
+        document.getElementById('status').textContent = '';
+
+        fetch('http://localhost:8090/api/v1/rag/analyze_git_repository', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `repoUrl=${encodeURIComponent(repoUrl)}&userName=${encodeURIComponent(userName)}&token=${encodeURIComponent(token)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingOverlay.style.display = 'none';
+            if (data.code === '0000') {
+                document.getElementById('status').textContent = '上传成功';
+                // 成功提示并关闭窗口
+                 setTimeout(() => {
+                   alert('上传成功，窗口即将关闭');
+                   window.close();
+                 }, 500);
+            } else {
+                document.getElementById('status').textContent = '上传失败';
+            }
+        })
+        .catch(error => {
+            loadingOverlay.style.display = 'none';
+            document.getElementById('status').textContent = '上传仓库时出错';
+        });
+    });
+</script>
+</body>
+</html>

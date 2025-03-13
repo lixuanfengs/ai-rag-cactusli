@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 h-screen">
+<div class="container mx-auto max-w-3xl h-screen flex flex-col">
+    <!-- 消息容器 -->
+    <div id="messageContainer" class="flex-1 overflow-y-auto p-4 space-y-4 bg-white rounded-lg shadow-lg">
+        <!-- 消息历史将在此动态生成 -->
+    </div>
+
+    <!-- 输入区域 -->
+    <div class="p-4 bg-white rounded-lg shadow-lg mt-4">
+        <div class="flex space-x-2">
+            <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="输入消息..."
+                    class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onkeypress="handleKeyPress(event)"
+            >
+            <button
+                    onclick="sendMessage()"
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+                发送
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+        // 添加消息到容器
+        function addMessage(content, isUser = false) {
+            const container = document.getElementById('messageContainer');
+            const messageDiv = document.createElement('div');
+
+            messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+            messageDiv.innerHTML = `
+                <div class="max-w-[80%] p-3 rounded-lg ${
+                    isUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'
+                }">
+                    ${content}
+                </div>
+            `;
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight; // 滚动到底部
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // 清空输入框
+            input.value = '';
+
+            // 添加用户消息
+            addMessage(message, true);
+
+            // 添加初始AI消息占位
+            addMessage('<span class="animate-pulse">▍</span>');
+
+            // 构建API URL
+            const apiUrl = `http://localhost:8090/api/v1/ollama/generate_stream?model=deepseek-r1:1.5b&message=${encodeURIComponent(message)}`;
+
+            // 使用EventSource接收流式响应
+            const eventSource = new EventSource(apiUrl);
+            let buffer = '';
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    const content = data.result?.output?.content || '';
+                    const finishReason = data.result?.metadata?.finishReason;
+
+                    if (content) {
+                        buffer += content;
+                        updateLastMessage(buffer + '<span class="animate-pulse">▍</span>');
+                    }
+
+                    if (finishReason === 'STOP') {
+                        eventSource.close();
+                        updateLastMessage(buffer); // 移除加载动画
+                    }
+                } catch (error) {
+                    console.error('解析错误:', error);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('EventSource错误:', error);
+                eventSource.close();
+            };
+        }
+
+        // 更新最后一条消息
+        function updateLastMessage(content) {
+            const container = document.getElementById('messageContainer');
+            const lastMessage = container.lastChild.querySelector('div');
+            lastMessage.innerHTML = content;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // 回车发送
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>

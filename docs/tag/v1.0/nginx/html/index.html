@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AiRagKnowledge - By 小傅哥</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/marked.min.js"></script>
+    <script src="js/purify.min.js"></script>
+    <script src="js/highlight.min.js"></script>
+    <link rel="stylesheet" href="css/github.min.css">
+    <link rel="stylesheet" href="css/index.css">
+</head>
+<body class="h-screen flex flex-col bg-gray-50">
+<!-- Top Navigation -->
+<nav class="border-b bg-white px-4 py-2 flex items-center gap-2">
+    <button id="toggleSidebar" class="p-2 hover:bg-gray-100 rounded-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path id="sidebarIconPath" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    </button>
+
+    <button id="newChatBtn" class="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        新聊天
+    </button>
+
+    <div class="flex-1 flex items-center gap-4">
+        <select id="aiModel" class="px-3 py-2 border rounded-lg flex-1 max-w-xs">
+            <option value="ollama" model="deepseek-r1:1.5b">deepseek-r1:1.5b</option>
+            <option value="openai" model="gpt-4o">gpt-4o</option>
+        </select>
+
+        <select id="ragSelect" class="px-3 py-2 border rounded-lg flex-1 max-w-xs">
+            <option value="">选择一个知识库</option>
+        </select>
+    </div>
+
+    <div class="flex items-center gap-2">
+        <div class="relative group">
+            <button id="uploadMenuButton" class="p-2 hover:bg-gray-100 rounded-lg flex items-center gap-1">
+                🐙上传知识
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+
+            <!-- 下拉菜单 -->
+            <div class="hidden absolute right-0 mt-2 w-48 bg-white border rounded-md shadow-lg z-50" id="uploadMenu">
+                <a href="upload.html" target="_blank" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                    📁 上传文件
+                </a>
+                <a href="git.html" target="_blank" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                    ⎇ 解析仓库（Git）
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="flex-1 flex overflow-hidden">
+    <!-- 侧边栏结构 -->
+    <aside id="sidebar" class="w-64 bg-white border-r overflow-y-auto transition-all duration-300 ease-in-out">
+        <div class="p-4">
+            <h2 class="font-bold mb-2 text-lg">聊天列表</h2>
+            <ul id="chatList" class="space-y-1">
+                <!-- 聊天列表项结构修改 -->
+            </ul>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Chat Area -->
+        <main class="flex-1 overflow-auto p-4" id="chatArea">
+            <div id="welcomeMessage" class="flex items-center justify-center h-full">
+                <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                    <div class="flex items-center gap-2 justify-center text-gray-500 mb-4">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        Ollama 正在运行 🐏
+                    </div>
+                    <p class="text-gray-600">开始新的对话吧！</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Input Area -->
+        <div class="p-4">
+            <div class="max-w-4xl mx-auto">
+                <div class="border rounded-lg bg-white">
+                    <div class="flex flex-col">
+                            <textarea
+                                    id="messageInput"
+                                    class="w-full px-3 py-2 min-h-[100px] focus:outline-none resize-none"
+                                    placeholder="输入一条消息..."></textarea>
+                        <div class="flex items-center justify-between px-3 py-2 border-t">
+                            <div class="flex items-center gap-2">
+                                <button class="p-2 hover:bg-gray-100 rounded-lg">🌐</button>
+                            </div>
+                            <button
+                                    id="submitBtn"
+                                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2">
+                                提交
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="js/index.js"></script>
+</body>
+</html>

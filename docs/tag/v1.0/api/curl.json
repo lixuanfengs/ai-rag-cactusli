@@ -1,0 +1,128 @@
+[
+  {
+    "result": {
+      "output": {
+        "messageType": "ASSISTANT",
+        "properties": {
+          "id": "chatcmpl-B3HPw95SsqmhoWeJ8azGLxK1Vf4At",
+          "role": "ASSISTANT",
+          "finishReason": ""
+        },
+        "content": "1",
+        "media": []
+      },
+      "metadata": {
+        "finishReason": null,
+        "contentFilterMetadata": null
+      }
+    }
+  },
+  {
+    "result": {
+      "output": {
+        "messageType": "ASSISTANT",
+        "properties": {
+          "id": "chatcmpl-B3HPw95SsqmhoWeJ8azGLxK1Vf4At",
+          "role": "ASSISTANT",
+          "finishReason": ""
+        },
+        "content": " +",
+        "media": []
+      },
+      "metadata": {
+        "finishReason": null,
+        "contentFilterMetadata": null
+      }
+    }
+  },
+  {
+    "result": {
+      "output": {
+        "messageType": "ASSISTANT",
+        "properties": {
+          "id": "chatcmpl-B3HPw95SsqmhoWeJ8azGLxK1Vf4At",
+          "role": "ASSISTANT",
+          "finishReason": ""
+        },
+        "content": " ",
+        "media": []
+      },
+      "metadata": {
+        "finishReason": null,
+        "contentFilterMetadata": null
+      }
+    }
+  },
+  {
+    "result": {
+      "output": {
+        "messageType": "ASSISTANT",
+        "properties": {
+          "id": "chatcmpl-B3HPw95SsqmhoWeJ8azGLxK1Vf4At",
+          "role": "ASSISTANT",
+          "finishReason": ""
+        },
+        "content": "1",
+        "media": []
+      },
+      "metadata": {
+        "finishReason": null,
+        "contentFilterMetadata": null
+      }
+    }
+  },
+  {
+    "result": {
+      "output": {
+        "messageType": "ASSISTANT",
+        "properties": {
+          "id": "chatcmpl-B3HPw95SsqmhoWeJ8azGLxK1Vf4At",
+          "role": "ASSISTANT",
+          "finishReason": ""
+        },
+        "content": " equals",
+        "media": []
+      },
+      "metadata": {
+        "finishReason": null,
+        "contentFilterMetadata": null
+      }
+    }
+  },
+  {
+    "result": {
+      "output": {
+        "messageType": "ASSISTANT",
+        "properties": {
+          "id": "chatcmpl-B3HPw95SsqmhoWeJ8azGLxK1Vf4At",
+          "role": "ASSISTANT",
+          "finishReason": ""
+        },
+        "content": "2",
+        "media": []
+      },
+      "metadata": {
+        "finishReason": null,
+        "contentFilterMetadata": null
+      }
+    }
+  },
+  {
+    "result": {
+      "output": {
+        "messageType": "ASSISTANT",
+        "properties": {
+          "id": "chatcmpl-B3HPw95SsqmhoWeJ8azGLxK1Vf4At",
+          "role": "ASSISTANT",
+          "finishReason": "STOP"
+        },
+        "content": null,
+        "media": []
+      },
+      "metadata": {
+        "finishReason": "STOP",
+        "contentFilterMetadata": null
+      }
+    }
+  }
+]

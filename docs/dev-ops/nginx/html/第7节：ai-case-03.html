@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Simple utility to handle sending messages and receiving data from the server.
+        async function sendMessage(chatId, message) {
+            const chatBox = document.getElementById(chatId);
+            const inputField = document.getElementById("user-input");
+
+            // Append user's message to the chat
+            chatBox.innerHTML += `<div class="p-2 mb-2 bg-gray-200 rounded-md text-left">${message}</div>`;
+            inputField.value = ''; // Clear input field
+
+            const apiUrl = `/api/v1/ollama/generate_stream?model=deepseek-r1:1.5b&message=${encodeURIComponent(message)}`;
+            const eventSource = new EventSource(apiUrl);
+
+            eventSource.onmessage = function (event) {
+                const response = JSON.parse(event.data);
+                const content = response[0]?.result?.output?.content;
+                const finishReason = response[0]?.result?.metadata?.finishReason;
+
+                if (content) {
+                    chatBox.innerHTML += `<div class="p-2 mb-2 bg-gray-100 rounded-md text-right">${content}</div>`;
+                }
+
+                if (finishReason === "STOP") {
+                    eventSource.close();
+                }
+            };
+        }
+
+        // Create new chat
+        function createNewChat() {
+            const chatList = document.getElementById('chat-list');
+            const chatId = 'chat-' + Date.now();
+            const newChat = document.createElement('div');
+            newChat.className = 'chat-item p-2 hover:bg-gray-200 cursor-pointer';
+            newChat.innerHTML = `<span class="text-sm">Chat ${chatList.children.length + 1}</span>`;
+            newChat.setAttribute('data-chat-id', chatId);
+            newChat.onclick = function () { selectChat(chatId); };
+            chatList.appendChild(newChat);
+        }
+
+        // Select chat
+        function selectChat(chatId) {
+            const chats = document.querySelectorAll('.chat-item');
+            chats.forEach(chat => chat.classList.remove('bg-gray-300'));
+            const selectedChat = document.querySelector(`[data-chat-id="${chatId}"]`);
+            selectedChat.classList.add('bg-gray-300');
+
+            // Display the chat box
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = `<div id="${chatId}" class="p-4 overflow-y-auto h-96 bg-gray-50 rounded-md"></div>`;
+        }
+
+        // Handle send button click or Enter key press
+        function handleSend() {
+            const message = document.getElementById("user-input").value.trim();
+            if (message) {
+                const activeChat = document.querySelector('.chat-item.bg-gray-300');
+                if (activeChat) {
+                    const chatId = activeChat.getAttribute('data-chat-id');
+                    sendMessage(chatId, message);
+                }
+            }
+        }
+
+        // Handle Enter key press for sending a message
+        document.getElementById('user-input').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+
+    </script>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+
+<!-- Top Bar -->
+<div class="flex items-center justify-between bg-white p-4 shadow-md">
+    <div class="flex items-center space-x-2">
+        <button onclick="createNewChat()" class="px-4 py-2 bg-blue-500 text-white rounded-md">新聊天</button>
+    </div>
+    <div class="flex space-x-4">
+        <select class="p-2 border rounded-md">
+            <option>deepseek-r1</option>
+        </select>
+        <span class="text-green-500">Ollama正在运行 🦙</span>
+    </div>
+</div>
+
+<div class="flex flex-1">
+    <!-- Left Sidebar (Chat List) -->
+    <div class="w-1/4 p-4 overflow-y-auto bg-white shadow-md">
+        <div id="chat-list">
+            <!-- Chat items will appear here -->
+        </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="flex-1 p-6 flex flex-col space-y-4">
+        <div id="chat-box" class="bg-gray-100 p-4 rounded-md h-full overflow-y-auto">
+            <!-- Messages will appear here -->
+        </div>
+
+        <!-- Message Input Section -->
+        <div class="flex space-x-2 items-center">
+            <input id="user-input" type="text" placeholder="输入一条消息..." class="flex-1 p-2 border rounded-md focus:outline-none">
+            <button onclick="handleSend()" class="px-4 py-2 bg-blue-500 text-white rounded-md">提交</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
