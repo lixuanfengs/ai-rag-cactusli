@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: ai-rag-cactusli
+
+  profiles:
+    active: dev
