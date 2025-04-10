@@ -53,7 +53,7 @@ public class RAGController implements IRAGService {
                 .build();
     }
 
-    @GetMapping(value = "file/upload", headers = "content-type=multipart/form-data")
+    @PostMapping(value = "file/upload", headers = "content-type=multipart/form-data")
     @Override
     public Response<String> uploadFile(@RequestParam String ragTag, @RequestParam("file") List<MultipartFile> files) {
         log.info("上传知识库开始 {}", ragTag);
@@ -61,12 +61,12 @@ public class RAGController implements IRAGService {
             TikaDocumentReader documentReader = new TikaDocumentReader(file.getResource());
             List<Document> documents = documentReader.get();
             List<Document> documentSplitterList = tokenTextSplitter.apply(documents);
-
+            // 添加知识库标签
             documents.forEach(doc -> doc.getMetadata().put("cactusli", ragTag));
             documentSplitterList.forEach(doc -> doc.getMetadata().put("cactusli", ragTag));
-
             pgVectorStore.accept(documentSplitterList);
 
+            // 添加知识库记录
             RList<String> elements = redissonClient.getList("ragTag");
             if (!elements.contains(ragTag)){
                 elements.add(ragTag);

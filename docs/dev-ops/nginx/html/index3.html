@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AiRagKnowledge - By 仙人球</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 h-screen flex overflow-hidden">
+<!-- Sidebar -->
+<div class="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div class="p-4 border-b border-gray-200">
+        <button id="new-chat-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-lg flex items-center justify-center">
+            <i class="fas fa-plus mr-2"></i> 新聊天
+        </button>
+    </div>
+    <div id="chat-list" class="flex-1 overflow-y-auto p-2">
+        <!-- Chat items will be added here -->
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="flex-1 flex flex-col h-full">
+    <!-- Chat Header -->
+    <div id="chat-header" class="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
+        <h2 id="current-chat-title" class="text-lg font-medium text-gray-800">新对话</h2>
+        <div id="chat-actions" class="hidden">
+            <button id="rename-chat-btn" class="text-gray-600 hover:text-gray-900 mr-3">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button id="delete-chat-btn" class="text-gray-600 hover:text-red-600">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Messages Area -->
+    <div id="messages-container" class="flex-1 overflow-y-auto p-4 bg-gray-50">
+        <div id="messages" class="max-w-3xl mx-auto">
+            <!-- Messages will be added here -->
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="p-4 border-t border-gray-200 bg-white">
+        <div class="max-w-3xl mx-auto">
+            <div class="flex items-center mb-2">
+                <label for="model-select" class="mr-2 text-sm text-gray-600">模型:</label>
+                <select id="model-select" class="border border-gray-300 rounded-md text-sm p-1">
+                    <option value="deepseek-r1:1.5b">DeepSeek R1 1.5B</option>
+                    <option value="llama3:8b">Llama 3 8B</option>
+                    <option value="mistral:7b">Mistral 7B</option>
+                    <option value="gemma:7b">Gemma 7B</option>
+                </select>
+                <div class="p-4"></div>
+                <label for="model-select1" class="mr-2 text-sm text-gray-600">选择知识库:</label>
+                <select id="model-select1" class="border border-gray-300 rounded-md text-sm p-1">
+                    <option value="deepseek-r1:1.5b">DeepSeek R1 1.5B</option>
+                    <option value="llama3:8b">Llama 3 8B</option>
+                    <option value="mistral:7b">Mistral 7B</option>
+                    <option value="gemma:7b">Gemma 7B</option>
+                </select>
+
+            </div>
+            <div class="flex">
+                <textarea id="message-input" class="flex-1 border border-gray-300 rounded-l-lg p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" placeholder="输入您的消息..." rows="2"></textarea>
+                <button id="send-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 rounded-r-lg">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rename Chat Modal -->
+<div id="rename-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 w-80">
+        <h3 class="text-lg font-medium mb-4">Rename Chat</h3>
+        <input id="rename-input" type="text" class="w-full border border-gray-300 rounded-lg p-2 mb-4" placeholder="Enter new name">
+        <div class="flex justify-end">
+            <button id="cancel-rename" class="text-gray-600 hover:text-gray-900 mr-4">Cancel</button>
+            <button id="confirm-rename" class="bg-emerald-600 hover:bg-emerald-700 text-white py-1 px-4 rounded-lg">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // State management
+        let chats = [];
+        let currentChatId = null;
+        const apiBaseUrl = 'http://localhost:7080/api/v1/ollama/generate_stream';
+        let isGenerating = false;
+
+        // DOM Elements
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const chatList = document.getElementById('chat-list');
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const modelSelect = document.getElementById('model-select');
+        const currentChatTitle = document.getElementById('current-chat-title');
+        const chatActions = document.getElementById('chat-actions');
+        const renameChatBtn = document.getElementById('rename-chat-btn');
+        const deleteChatBtn = document.getElementById('delete-chat-btn');
+        const renameModal = document.getElementById('rename-modal');
+        const renameInput = document.getElementById('rename-input');
+        const confirmRename = document.getElementById('confirm-rename');
+        const cancelRename = document.getElementById('cancel-rename');
+
+        // Create a new chat
+        function createNewChat() {
+            const chatId = Date.now().toString();
+            const chat = {
+                id: chatId,
+                title: '新对话',
+                messages: []
+            };
+
+            chats.push(chat);
+            renderChatList();
+            selectChat(chatId);
+            saveChats();
+        }
+
+        // Select a chat
+        function selectChat(chatId) {
+            currentChatId = chatId;
+            const chat = chats.find(c => c.id === chatId);
+
+            if (chat) {
+                currentChatTitle.textContent = chat.title;
+                chatActions.classList.remove('hidden');
+                renderMessages(chat.messages);
+            } else {
+                currentChatTitle.textContent = '新对话';
+                chatActions.classList.add('hidden');
+                messagesContainer.innerHTML = '';
+            }
+        }
+
+        // Render chat list
+        function renderChatList() {
+            chatList.innerHTML = '';
+
+            chats.forEach(chat => {
+                const chatItem = document.createElement('div');
+                chatItem.className = `p-2 rounded-lg mb-1 cursor-pointer hover:bg-gray-100 ${currentChatId === chat.id ? 'bg-gray-100' : ''}`;
+                chatItem.innerHTML = `
+            <div class="flex items-center">
+              <i class="fas fa-comment-alt text-gray-400 mr-2"></i>
+              <span class="text-gray-800 truncate">${chat.title}</span>
+            </div>
+          `;
+
+                chatItem.addEventListener('click', () => selectChat(chat.id));
+                chatList.appendChild(chatItem);
+            });
+        }
+
+        // Render messages
+        function renderMessages(messages) {
+            messagesContainer.innerHTML = '';
+
+            messages.forEach(msg => {
+                const messageEl = document.createElement('div');
+                messageEl.className = `mb-4 ${msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'}`;
+
+                const bubbleEl = document.createElement('div');
+                bubbleEl.className = `max-w-[80%] p-3 rounded-lg ${msg.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-white border border-gray-200 text-gray-800'}`;
+
+                // Handle text with newlines
+                const formattedText = msg.content.replace(/\n/g, '<br>');
+                bubbleEl.innerHTML = formattedText;
+
+                messageEl.appendChild(bubbleEl);
+                messagesContainer.appendChild(messageEl);
+            });
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Send message
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || isGenerating) return;
+
+            // Create chat if none exists
+            if (!currentChatId) {
+                createNewChat();
+            }
+
+            const currentChat = chats.find(c => c.id === currentChatId);
+            if (!currentChat) return;
+
+            // Add user message
+            currentChat.messages.push({
+                role: 'user',
+                content: message
+            });
+
+            // Update UI
+            renderMessages(currentChat.messages);
+            messageInput.value = '';
+
+            // Get selected model
+            const selectedModel = modelSelect.value;
+
+            // Add assistant message placeholder
+            const assistantMessage = {
+                role: 'assistant',
+                content: ''
+            };
+            currentChat.messages.push(assistantMessage);
+
+            // Start streaming
+            isGenerating = true;
+
+            try {
+                // Encode message for URL
+                const encodedMessage = encodeURIComponent(message);
+                const apiUrl = `${apiBaseUrl}?model=${selectedModel}&message=${encodedMessage}`;
+
+                const eventSource = new EventSource(apiUrl);
+
+                eventSource.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+
+                        // Check if there's content to display
+                        if (data.result && data.result.output && data.result.output.text) {
+                            // Append new content
+                            assistantMessage.content += data.result.output.text;
+                            renderMessages(currentChat.messages);
+                        }
+
+                        // Check if stream is finished
+                        if (data.result && data.result.metadata && data.result.metadata.finishReason === 'stop') {
+                            eventSource.close();
+                            isGenerating = false;
+                        }
+                    } catch (error) {
+                        console.error('Error parsing event data:', error);
+                    }
+                };
+
+                eventSource.onerror = function(error) {
+                    console.error('EventSource error:', error);
+                    eventSource.close();
+                    isGenerating = false;
+
+                    // Update message to show error
+                    if (assistantMessage.content === '') {
+                        assistantMessage.content = 'Error: Could not connect to the server.';
+                        renderMessages(currentChat.messages);
+                    }
+                };
+            } catch (error) {
+                console.error('Error sending message:', error);
+                isGenerating = false;
+            }
+
+            // Update chat title if it's the first message
+            if (currentChat.messages.length === 2 && currentChat.title === '新对话') {
+                // Use first few words of message as title
+                const words = message.split(' ').slice(0, 4).join(' ');
+                currentChat.title = words + (words.length < message.length ? '...' : '');
+                currentChatTitle.textContent = currentChat.title;
+                renderChatList();
+            }
+
+            saveChats();
+        }
+
+        // Rename chat
+        function openRenameModal() {
+            const currentChat = chats.find(c => c.id === currentChatId);
+            if (!currentChat) return;
+
+            renameInput.value = currentChat.title;
+            renameModal.classList.remove('hidden');
+            renameInput.focus();
+        }
+
+        function confirmRenameChat() {
+            const newName = renameInput.value.trim();
+            if (!newName) return;
+
+            const currentChat = chats.find(c => c.id === currentChatId);
+            if (!currentChat) return;
+
+            currentChat.title = newName;
+            currentChatTitle.textContent = newName;
+            renderChatList();
+            renameModal.classList.add('hidden');
+            saveChats();
+        }
+
+        // Delete chat
+        function deleteCurrentChat() {
+            if (!currentChatId) return;
+
+            if (confirm('Are you sure you want to delete this chat?')) {
+                chats = chats.filter(c => c.id !== currentChatId);
+
+                if (chats.length > 0) {
+                    selectChat(chats[0].id);
+                } else {
+                    currentChatId = null;
+                    currentChatTitle.textContent = '新对话';
+                    chatActions.classList.add('hidden');
+                    messagesContainer.innerHTML = '';
+                }
+
+                renderChatList();
+                saveChats();
+            }
+        }
+
+        // Save and load chats from localStorage
+        function saveChats() {
+            localStorage.setItem('ai-chats', JSON.stringify(chats));
+        }
+
+        function loadChats() {
+            const savedChats = localStorage.getItem('ai-chats');
+            if (savedChats) {
+                chats = JSON.parse(savedChats);
+                renderChatList();
+
+                if (chats.length > 0) {
+                    selectChat(chats[0].id);
+                }
+            }
+        }
+
+
+        // Function to fetch the tag list from the backend API
+        async function fetchRagTagList() {
+            try {
+                const response = await fetch('http://localhost:7080/api/v1/rag/query_rag_tag_list');
+                const result = await response.json();
+
+                if (result.code === "1000") {
+                    return result.data;
+                } else {
+                    console.error('Failed to fetch tag list:', result.info);
+                    return [];
+                }
+            } catch (error) {
+                console.error('Error fetching tag list:', error);
+                return [];
+            }
+        }
+
+        // Function to populate the dropdown with the fetched data
+        async function populateKnowledgeBaseDropdown() {
+            const dropdown = document.querySelector('#model-select1'); // Replace with your actual dropdown selector
+
+            if (!dropdown) {
+                console.error('Dropdown element not found');
+                return;
+            }
+
+            // Clear existing options (except perhaps a default one)
+            // If you want to keep any default options, adjust this part
+            dropdown.innerHTML = '';
+
+            // Add a loading option if desired
+            const loadingOption = document.createElement('option');
+            loadingOption.textContent = 'Loading...';
+            dropdown.appendChild(loadingOption);
+
+            // Fetch the tag list
+            const tagList = await fetchRagTagList();
+
+            // Remove the loading option
+            dropdown.innerHTML = '';
+
+            // Add the fetched options
+            if (tagList.length > 0) {
+                tagList.forEach(tag => {
+                    const option = document.createElement('option');
+                    option.value = tag;
+                    option.textContent = tag;
+                    dropdown.appendChild(option);
+                });
+            } else {
+                // Add a default option if no tags were found
+                const defaultOption = document.createElement('option');
+                defaultOption.textContent = 'No options available';
+                dropdown.appendChild(defaultOption);
+            }
+        }
+
+        // Call the function when the page loads
+        document.addEventListener('DOMContentLoaded', populateKnowledgeBaseDropdown);
+
+        // Event Listeners
+        newChatBtn.addEventListener('click', createNewChat);
+
+        sendBtn.addEventListener('click', sendMessage);
+
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        renameChatBtn.addEventListener('click', openRenameModal);
+        deleteChatBtn.addEventListener('click', deleteCurrentChat);
+
+        confirmRename.addEventListener('click', confirmRenameChat);
+        cancelRename.addEventListener('click', () => {
+            renameModal.classList.add('hidden');
+        });
+
+        renameInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                confirmRenameChat();
+            }
+        });
+
+        // Close modal when clicking outside
+        renameModal.addEventListener('click', function(e) {
+            if (e.target === renameModal) {
+                renameModal.classList.add('hidden');
+            }
+        });
+
+        // Load saved chats on startup
+        loadChats();
+
+        fetchRagTagList();
+    });
+</script>
+</body>
+</html>
