@@ -6,7 +6,7 @@ spring:
     driver-class-name: org.postgresql.Driver
     username: postgres
     password: postgres
-    url: jdbc:postgresql://192.168.1.107:5432/ai-rag-cactusli
+    url: jdbc:postgresql://192.168.1.23:5432/ai-rag-cactusli
     type: com.zaxxer.hikari.HikariDataSource
     # hikari连接池配置
     hikari:
@@ -35,7 +35,7 @@ spring:
         batching-strategy: TOKEN_COUNT # Optional: Controls how documents are batched for embedding
         max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
     ollama:
-      base-url: http://118.31.119.179:11434/
+      base-url: http://192.168.1.23:11434/
       embedding:
         options:
           num-batch: 512
@@ -46,7 +46,7 @@ spring:
 redis:
   sdk:
     config:
-      host: 192.168.1.107
+      host: 192.168.1.23
       port: 16379
       pool-size: 10
       min-idle-size: 5
