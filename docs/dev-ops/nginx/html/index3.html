@@ -49,7 +49,8 @@
                 <label for="model-select" class="mr-2 text-sm text-gray-600">模型:</label>
                 <select id="model-select" class="border border-gray-300 rounded-md text-sm p-1">
                     <option value="deepseek-r1:1.5b">DeepSeek R1 1.5B</option>
-                    <option value="llama3:8b">Llama 3 8B</option>
+                    <option value="gpt-4o-mini">GPT 4o mini</option>
+                    <option value="gpt-4o">GPT 4o</option>
                     <option value="mistral:7b">Mistral 7B</option>
                     <option value="gemma:7b">Gemma 7B</option>
                 </select>
@@ -90,7 +91,7 @@
         // State management
         let chats = [];
         let currentChatId = null;
-        const apiBaseUrl = 'http://localhost:7080/api/v1/ollama/generate_stream';
+        const apiBaseUrl = 'http://localhost:7080/api/v1/openai/generate_stream';
         let isGenerating = false;
 
         // DOM Elements

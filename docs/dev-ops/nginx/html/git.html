@@ -3,58 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>解析仓库</title>
+    <title>上传 Git 仓库</title>
     <style>
+        :root {
+            --primary-color: #4285f4;
+            --primary-hover: #2b6cb0;
+            --bg-color: #f9fafb;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e2e8f0;
+            --error-color: #e53e3e;
+            --success-color: #38a169;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: 'Microsoft YaHei', '微软雅黑', sans-serif;
-            background-color: #f0f0f0;
+            font-family: 'Microsoft YaHei', '微软雅黑', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
+            color: var(--text-color);
+            line-height: 1.5;
         }
+
         .container {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            width: 300px;
+            background-color: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            width: 380px;
+            max-width: 90%;
+            transition: transform 0.3s ease;
         }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
         h1 {
-            color: #333;
+            color: var(--text-color);
             margin-bottom: 1.5rem;
+            font-size: 1.75rem;
+            text-align: center;
+            font-weight: 600;
         }
+
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 1.25rem;
+            text-align: left;
         }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .input-container {
+            position: relative;
+        }
+
         input {
             width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
             font-size: 1rem;
-            box-sizing: border-box;
+            transition: all 0.3s;
+            background-color: #f8fafc;
         }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.15);
+            background-color: white;
+        }
+
+        input::placeholder {
+            color: #a0aec0;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #718096;
+        }
+
         button {
-            background-color: #1E90FF;
+            background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 0.5rem 1rem;
+            padding: 0.75rem 1rem;
             font-size: 1rem;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: all 0.3s;
             width: 100%;
+            font-weight: 500;
+            margin-top: 0.5rem;
         }
+
         button:hover {
-            background-color: #4169E1;
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.2);
         }
+
+        button:active {
+            transform: translateY(0);
+        }
+
         #status {
-            margin-top: 1rem;
-            font-weight: bold;
+            margin-top: 1.25rem;
+            font-weight: 500;
+            text-align: center;
+            min-height: 24px;
+            transition: all 0.3s;
         }
+
+        .status-success {
+            color: var(--success-color);
+        }
+
+        .status-error {
+            color: var(--error-color);
+        }
+
         .overlay {
             display: none;
             position: fixed;
@@ -62,83 +150,190 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.6);
             z-index: 1000;
             justify-content: center;
             align-items: center;
+            backdrop-filter: blur(3px);
+            transition: all 0.3s;
         }
+
+        .loading-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
         .loading-spinner {
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
+            border: 4px solid rgba(66, 133, 244, 0.2);
+            border-top: 4px solid var(--primary-color);
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
         }
+
+        .loading-text {
+            margin-top: 1rem;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+            color: var(--primary-color);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            color: #718096;
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>上传Git仓库</h1>
+    <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
+            <path d="M9 18c-4.51 2-5-2-7-2"></path>
+        </svg>
+    </div>
+    <h1>上传 Git 仓库</h1>
     <form id="uploadForm">
         <div class="form-group">
-            <input type="text" id="repoUrl" placeholder="Git仓库地址" required>
+            <label for="repoUrl">仓库地址</label>
+            <div class="input-container">
+                <input type="text" id="repoUrl" placeholder="例如: https://github.com/username/repo" required>
+            </div>
         </div>
         <div class="form-group">
-            <input type="text" id="userName" placeholder="用户名" required>
+            <label for="userName">用户名</label>
+            <div class="input-container">
+                <input type="text" id="userName" placeholder="您的 Git 用户名" required>
+            </div>
         </div>
         <div class="form-group">
-            <input type="password" id="token" placeholder="密码/Token" required>
+            <label for="token">密码/Token</label>
+            <div class="input-container">
+                <input type="password" id="token" placeholder="个人访问令牌或密码" required>
+                <span class="password-toggle" id="togglePassword">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </span>
+            </div>
         </div>
-        <button type="submit">提交</button>
+        <button type="submit">提交仓库</button>
     </form>
     <div id="status"></div>
+    <footer>
+        © 2025 代码仓库分析工具
+    </footer>
 </div>
 
 <div class="overlay" id="loadingOverlay">
-    <div class="loading-spinner"></div>
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在上传仓库，请稍候...</div>
+    </div>
 </div>
 
 <script>
     const loadingOverlay = document.getElementById('loadingOverlay');
+    const statusElement = document.getElementById('status');
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('token');
 
+    // 密码显示/隐藏功能
+    togglePassword.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+
+        // 切换眼睛图标
+        if (type === 'password') {
+            this.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>`;
+        } else {
+            this.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>`;
+        }
+    });
+
+    // 表单提交处理
     document.getElementById('uploadForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const repoUrl = document.getElementById('repoUrl').value;
         const userName = document.getElementById('userName').value;
         const token = document.getElementById('token').value;
 
-        loadingOverlay.style.display = 'flex';
-        document.getElementById('status').textContent = '';
+        // 验证输入
+        if (!repoUrl.trim() || !userName.trim() || !token.trim()) {
+            statusElement.textContent = '请填写所有字段';
+            statusElement.className = 'status-error';
+            return;
+        }
 
-        fetch('http://localhost:8090/api/v1/rag/analyze_git_repository', {
+        // 显示加载状态
+        loadingOverlay.style.display = 'flex';
+        statusElement.textContent = '';
+        statusElement.className = '';
+
+        // 发送请求
+        fetch('http://localhost:7080/api/v1/rag/analyze_git_repository', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: `repoUrl=${encodeURIComponent(repoUrl)}&userName=${encodeURIComponent(userName)}&token=${encodeURIComponent(token)}`
         })
-        .then(response => response.json())
-        .then(data => {
-            loadingOverlay.style.display = 'none';
-            if (data.code === '0000') {
-                document.getElementById('status').textContent = '上传成功';
-                // 成功提示并关闭窗口
-                 setTimeout(() => {
-                   alert('上传成功，窗口即将关闭');
-                   window.close();
-                 }, 500);
-            } else {
-                document.getElementById('status').textContent = '上传失败';
-            }
-        })
-        .catch(error => {
-            loadingOverlay.style.display = 'none';
-            document.getElementById('status').textContent = '上传仓库时出错';
+            .then(response => response.json())
+            .then(data => {
+                loadingOverlay.style.display = 'none';
+                if (data.code === '1000') {
+                    statusElement.textContent = '仓库上传成功！';
+                    statusElement.className = 'status-success';
+
+                    // 成功提示并关闭窗口
+                    setTimeout(() => {
+                        alert('仓库上传成功，窗口即将关闭');
+                        window.close();
+                    }, 800);
+                } else {
+                    statusElement.textContent = '上传失败: ' + (data.message || '未知错误');
+                    statusElement.className = 'status-error';
+                }
+            })
+            .catch(error => {
+                loadingOverlay.style.display = 'none';
+                statusElement.textContent = '网络错误，请检查您的连接并重试';
+                statusElement.className = 'status-error';
+                console.error('Error:', error);
+            });
+    });
+
+    // 输入框获取焦点时清除状态消息
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('focus', () => {
+            statusElement.textContent = '';
+            statusElement.className = '';
         });
     });
 </script>

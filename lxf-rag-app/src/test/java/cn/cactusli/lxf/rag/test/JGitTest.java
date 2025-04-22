@@ -49,8 +49,8 @@ public class JGitTest {
     public void test() throws Exception {
         // 这部分替换为你的
         String repoURL = "https://gitcode.net/KnowledgePlanet/mcp-server-csdn.git";
-        String username = "qq_34968019";
-        String password = "FWBaTJLLArrJzBPLaaoZ";
+        String username = "asdasdasdasd";
+        String password = "adasdasd";
 
         String localPath = "./cloned-repo";
         log.info("克隆路径：" + new File(localPath).getAbsolutePath());

@@ -35,12 +35,19 @@ spring:
         batching-strategy: TOKEN_COUNT # Optional: Controls how documents are batched for embedding
         max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
     ollama:
-      base-url: http://192.168.1.23:11434/
+      base-url: http://118.189.227.190:11434
       embedding:
         options:
           num-batch: 512
         model: nomic-embed-text
-
+    openai:
+      base-url: https://voapi.killerbest.com/
+      api-key: sk-0SRIYFVnb34sL7HPBqyI4FNfcXaBBPe9leUTPobuu0rAFTyS
+      embedding:
+        options:
+          model: text-embedding-ada-002
+    rag:
+      embedding: nomic-embed-text #nomic-embed-text、text-embedding-ada-002
 
 # Redis
 redis:

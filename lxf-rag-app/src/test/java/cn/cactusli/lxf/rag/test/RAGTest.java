@@ -15,6 +15,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -44,6 +45,8 @@ public class RAGTest {
 
     @Resource
     private OllamaChatModel ollamaChatModel;
+    @Resource
+    private OpenAiChatModel openAiChatModel;
     @Resource
     private TokenTextSplitter tokenTextSplitter;
     @Resource
@@ -79,7 +82,7 @@ public class RAGTest {
 
     @Test
     public void ragChat() {
-        String message = "仙人球哪年出生的?";
+        String message = "请求CSDN发帖? 这几个字出现在哪个文件里？把这个方法完整输出！";
         log.info("用户提问: {}", message);
 
         String SYSTEM_PROMPT = """
@@ -93,7 +96,7 @@ public class RAGTest {
 
 
         log.info("开始向量数据库相似度搜索，查询: {}", message);
-        SearchRequest request = SearchRequest.builder().query(message).topK(5).filterExpression("cactusli == '知识库名称'").build();
+        SearchRequest request = SearchRequest.builder().query(message).topK(5).filterExpression("cactusli == 'group-buy-market-liergou'").build();
         log.info("搜索参数: topK={}, 过滤条件={}", 5, "cactusli == '知识库名称'");
 
         List<Document> documents = pgVectorStore.similaritySearch(request);
@@ -115,7 +118,7 @@ public class RAGTest {
         log.info("消息准备完成，共 {} 条消息", messages.size());
 
         log.info("开始调用Ollama模型 deepseek-r1:1.5b...");
-        ChatResponse chatResponse = ollamaChatModel.call(new Prompt(messages, ChatOptions.builder().model("deepseek-r1:1.5b").build()));
+        ChatResponse chatResponse = openAiChatModel.call(new Prompt(messages, ChatOptions.builder().model("gpt-4o-mini").build()));
         log.info("Ollama模型调用完成，返回消息: {}", chatResponse.getResult().getOutput().getText());
 
         log.info("完整响应: {}", JSON.toJSONString(chatResponse));

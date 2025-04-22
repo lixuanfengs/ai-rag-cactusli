@@ -5,6 +5,8 @@ import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.ai.openai.OpenAiEmbeddingModel;
+import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
@@ -32,6 +34,14 @@ public class OllamaConfig {
     }
 
     @Bean
+    public OpenAiApi openAiApi(@Value("${spring.ai.openai.base-url}") String baseUrl, @Value("${spring.ai.openai.api-key}") String apiKey) {
+        return OpenAiApi.builder().baseUrl(baseUrl)
+                .apiKey(apiKey)
+                .build();
+    }
+
+
+    @Bean
     public OllamaChatModel ollamaChatModel(OllamaApi ollamaApi) {
         return OllamaChatModel.builder()
                 .ollamaApi(ollamaApi)
@@ -42,58 +52,77 @@ public class OllamaConfig {
                 .build();
     }
 
-    /**
-     * 配置文本分割器。
-     * 这个Bean负责创建文本分割工具，可以把长文本切分成小段落。
-     * 在做文档检索时，通常需要先把文档分成小块再处理，这个分割器就是干这个的。
-     */
     @Bean
     public TokenTextSplitter tokenTextSplitter() {
         return new TokenTextSplitter();
     }
 
-    /**
-     * 配置内存向量存储。
-     *
-     * 这个Bean创建一个内存中的向量数据库，用来存储和检索文本的向量表示。
-     * 它使用Ollama的API将文本转换为向量，并用nomic-embed-text模型生成这些向量。
-     * 适合小规模应用或测试使用。
-     *
-     * @param ollamaApi AI模型服务的接口
-     * @return 返回一个可以在内存中存储向量的数据库
-     */
+
     @Bean
-    public SimpleVectorStore simpleVectorStore(OllamaApi ollamaApi) {
-        // 嵌入生成客户端指定使用"nomic-embed-text"这个模型来生成嵌入向量
-        OllamaEmbeddingModel embeddingModel = OllamaEmbeddingModel.builder()
-                .ollamaApi(ollamaApi)
-                .defaultOptions(
-                        OllamaOptions.builder()
-                                .model(NOMIC_EMBED_TEXT)
-                                .build())
-                .build();
-        return SimpleVectorStore.builder(embeddingModel).build();
+    public SimpleVectorStore simpleVectorStore(@Value("${spring.ai.rag.embedding}") String model, OllamaApi ollamaApi,  OpenAiApi openAiApi) {
+        if ("nomic-embed-text".equalsIgnoreCase(model)) {
+            // 嵌入生成客户端指定使用"nomic-embed-text"这个模型来生成嵌入向量
+            OllamaEmbeddingModel embeddingModel = OllamaEmbeddingModel.builder()
+                    .ollamaApi(ollamaApi)
+                    .defaultOptions(
+                            OllamaOptions.builder()
+                                    .model(NOMIC_EMBED_TEXT)
+                                    .build())
+                    .build();
+            return SimpleVectorStore.builder(embeddingModel).build();
+        } else {
+            OpenAiEmbeddingModel openAiEmbeddingModel = new OpenAiEmbeddingModel(openAiApi);
+            return SimpleVectorStore.builder(openAiEmbeddingModel).build();
+        }
+
     }
 
     /**
-     * 配置PostgreSQL向量存储。
-     * 这个Bean创建一个基于PostgreSQL的向量数据库，适合存储大量数据和生产环境使用。
-     * 它同样使用Ollama的API生成向量，但会把这些向量保存在PostgreSQL数据库中。
-     * 使用前需要确保PostgreSQL已安装vector扩展。
-     * @param ollamaApi AI模型服务的接口
-     * @param jdbcTemplate 数据库连接工具
-     * @return 返回一个可以在PostgreSQL中存储向量的数据库
+     * -- 删除旧的表（如果存在）
+     * DROP TABLE IF EXISTS public.vector_store_ollama_deepseek;
+     *
+     * -- 创建新的表，使用UUID作为主键
+     * CREATE TABLE public.vector_store_ollama_deepseek (
+     *     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     *     content TEXT NOT NULL,
+     *     metadata JSONB,
+     *     embedding VECTOR(768)
+     * );
+     *
+     * SELECT * FROM vector_store_ollama_deepseek
+     */
+    /**
+     * -- 删除旧的表（如果存在）
+     * DROP TABLE IF EXISTS public.vector_store_openai;
+     *
+     * -- 创建新的表，使用UUID作为主键
+     * CREATE TABLE public.vector_store_openai (
+     *     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     *     content TEXT NOT NULL,
+     *     metadata JSONB,
+     *     embedding VECTOR(1536)
+     * );
+     *
+     * SELECT * FROM vector_store_openai
      */
     @Bean
-    public PgVectorStore pgVectorStore(OllamaApi ollamaApi, JdbcTemplate jdbcTemplate) {
-        OllamaEmbeddingModel embeddingModel = OllamaEmbeddingModel.builder()
-                .ollamaApi(ollamaApi)
-                .defaultOptions(
-                        OllamaOptions.builder()
-                                .model(NOMIC_EMBED_TEXT)
-                                .build())
-                .build();
-        return PgVectorStore.builder(jdbcTemplate, embeddingModel).build();
+    public PgVectorStore pgVectorStore(@Value("${spring.ai.rag.embedding}") String model, OllamaApi ollamaApi,  OpenAiApi openAiApi, JdbcTemplate jdbcTemplate) {
+        if ("nomic-embed-text".equalsIgnoreCase(model)) {
+            OllamaEmbeddingModel embeddingModel = OllamaEmbeddingModel.builder()
+                    // 如果 nomic-embed-text 和 deepseek-r1 不在同一个 ollama 中
+                    .ollamaApi(new OllamaApi("http://192.168.1.23:11434/"))
+                    .defaultOptions(
+                            OllamaOptions.builder()
+                                    .model(NOMIC_EMBED_TEXT)
+                                    .build())
+                    .build();
+            return PgVectorStore.builder(jdbcTemplate, embeddingModel).vectorTableName("vector_store_ollama_deepseek").build();
+        } else {
+            OpenAiEmbeddingModel openAiEmbeddingModel = new OpenAiEmbeddingModel(openAiApi);
+            return PgVectorStore.builder(jdbcTemplate, openAiEmbeddingModel)
+                    .vectorTableName("vector_store_openai")
+                    .build();
+        }
     }
 
 }

@@ -143,6 +143,10 @@ public class RAGController implements IRAGService {
             }
         });
 
+        // 确保 Git 对象被关闭，释放资源 (例如文件句柄)
+        git.close();
+
+
         // 处理完成后，再次删除本地克隆的仓库目录，进行清理
         FileUtils.deleteDirectory(new File(localPath));
 
@@ -151,8 +155,6 @@ public class RAGController implements IRAGService {
             elements.add(repoProjectName);
         }
 
-        // 确保 Git 对象被关闭，释放资源 (例如文件句柄)
-        git.close();
 
         log.info("遍历解析路径，上传完成:{}", repoUrl);
 
