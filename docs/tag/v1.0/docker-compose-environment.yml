@@ -41,7 +41,7 @@ services:
       - 8081:8081
     environment:
       - REDIS_HOSTS=local:redis:6379
-      - REDIS_PASSWORD=d608ba75-09dd-4d0f-ad17-210303cc1aa2
+      - REDIS_PASSWORD=0691bcb6
       - HTTP_USER=admin
       - HTTP_PASSWORD=admin
       - LANG=C.UTF-8
@@ -60,7 +60,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=springai
+      - POSTGRES_DB=ai-rag-cactusli
       - PGPASSWORD=postgres
     volumes:
       - ./pgvector/sql/init.sql:/docker-entrypoint-initdb.d/init.sql

@@ -41,13 +41,14 @@ spring:
           num-batch: 512
         model: nomic-embed-text
     openai:
-      base-url: https://voapi.killerbest.com/
-      api-key: sk-0SRIYFVnb34sL7HPBqyI4FNfcXaBBPe9leUTPobuu0rAFTyS
+      base-url: https://api.damoxing.site/
+      api-key: sk-kDbOAj2RlU9Bw89rbVPKmps4Jp**********
+
       embedding:
         options:
-          model: text-embedding-ada-002
+          model: text-embedding-3-small
     rag:
-      embedding: nomic-embed-text #nomic-embed-text、text-embedding-ada-002
+      embedding: text-embedding-3-small #nomic-embed-text、text-embedding-ada-002
 
 # Redis
 redis:

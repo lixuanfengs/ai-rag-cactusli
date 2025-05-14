@@ -18,10 +18,10 @@ let isStreaming = false; // Flag to track if AI is currently responding
 
 // --- Marked.js Configuration ---
 marked.setOptions({
-    highlight: function(code, lang) {
+    highlight: function (code, lang) {
         const language = hljs.getLanguage(lang) ? lang : 'plaintext';
         try {
-            return hljs.highlight(code, { language, ignoreIllegals: true }).value;
+            return hljs.highlight(code, {language, ignoreIllegals: true}).value;
         } catch (e) {
             console.error("Highlighting error:", e);
             return hljs.highlightAuto(code).value; // Fallback to auto-detection
@@ -38,12 +38,18 @@ marked.setOptions({
 
 // --- Utility Functions ---
 function getTimestamp() {
-    return new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return new Date().toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
 function sanitizeHTML(htmlString) {
     return DOMPurify.sanitize(htmlString, {
-        USE_PROFILES: { html: true }, // Allow necessary tags for formatting and code blocks
+        USE_PROFILES: {html: true}, // Allow necessary tags for formatting and code blocks
         ADD_ATTR: ['target'], // Allow target="_blank" for links if needed later
     });
 }
@@ -90,7 +96,7 @@ function applyHighlightingAndCopyButtons(element) {
             // Check if already highlighted
             try {
                 hljs.highlightElement(codeBlock);
-            } catch(e) {
+            } catch (e) {
                 console.error("Error applying highlightElement:", e, codeBlock.textContent);
             }
         }
@@ -284,7 +290,10 @@ function updateChatList() {
         const displayName = chatData.name.length > 25 ? chatData.name.substring(0, 22) + '...' : chatData.name;
         const lastMessage = chatData.messages.length > 0 ? chatData.messages[chatData.messages.length - 1].content : "尚无消息";
         const previewText = lastMessage.length > 30 ? lastMessage.substring(0, 27) + '...' : lastMessage;
-        const displayDate = new Date(chatData.createdAt || parseInt(chatId)).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+        const displayDate = new Date(chatData.createdAt || parseInt(chatId)).toLocaleDateString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit'
+        });
 
 
         li.innerHTML = `
@@ -343,7 +352,7 @@ function loadChat(chatId) {
         updateChatList(); // Refresh list to remove potentially broken item display
         // Maybe load the most recent valid chat?
         const chatKeys = Object.keys(localStorage).filter(key => key.startsWith('chat_')).sort((a, b) => parseInt(b.split('_')[1]) - parseInt(a.split('_')[1]));
-        if(chatKeys.length > 0) {
+        if (chatKeys.length > 0) {
             loadChat(chatKeys[0].split('_')[1]);
         } else {
             createNewChat();
@@ -473,7 +482,7 @@ function appendMessage(content, isAssistant = false, saveToStorage = true) {
         if (chatData) {
             if (typeof content === 'string' && typeof isAssistant === 'boolean') {
                 // Save the original content, including <think> tags if present
-                chatData.messages.push({ content, isAssistant });
+                chatData.messages.push({content, isAssistant});
                 localStorage.setItem(`chat_${currentChatId}`, JSON.stringify(chatData));
                 updateChatList(); // Update preview
             } else {
@@ -503,52 +512,85 @@ function startEventStream(message) {
         currentEventSource.close();
     }
 
-    const selectedRagTag = ragSelect.value;
+    const selectedRagTag = ragSelect.value; // Keep RAG selection logic
     const selectedAiModelValue = aiModelSelect.value;
     const selectedAiModelName = aiModelSelect.options[aiModelSelect.selectedIndex].getAttribute('model');
-
-    // --- REMOVE the model check ---
-    // const isThinking = isThinkingModel(selectedAiModelName);
 
     if (!selectedAiModelName) {
         console.error("No AI model name selected!");
         setStreamingState(false);
-        appendMessage("错误：未选择有效的 AI 模型。", true, false); // Keep this error check
+        appendMessage("错误：未选择有效的 AI 模型。", true, false);
         return;
     }
 
+    // --- WORKAROUND START ---
+    // 1. Get chat history
+    const chatData = getChatData(currentChatId);
+    const history = chatData ? chatData.messages : [];
+
+    // 2. Format history into a single string to prepend
+    let historyString = "";
+    // Limit history length to avoid excessively long URLs (adjust maxHistory as needed)
+    const maxHistory = 10; // Example: Keep last 10 messages
+    const startIndex = Math.max(0, history.length - maxHistory);
+
+    for (let i = startIndex; i < history.length; i++) {
+        const msg = history[i];
+        if (typeof msg.content === 'string' && typeof msg.isAssistant === 'boolean') {
+            // Important: Exclude <think> tags from the history string sent to the model
+            // unless your model is specifically trained to handle them as part of the prompt.
+            // Usually, you only want the actual conversation turns.
+            const contentWithoutThink = msg.content.replace(/<think>.*?<\/think>/gs, '').trim();
+            if (contentWithoutThink) { // Only add if there's actual content after removing think tags
+                historyString += (msg.isAssistant ? "Assistant: " : "User: ") + contentWithoutThink + "\n";
+            }
+        }
+    }
+
+    // 3. Prepend history to the current message
+    const combinedMessage = historyString + "User: " + message; // Clearly mark the new message
+    // --- WORKAROUND END ---
+
+
     let url;
     const base = `http://localhost:7080/api/v1/${selectedAiModelValue}`;
+
+    // --- Send the COMBINED message in the 'message' parameter ---
     const params = new URLSearchParams({
-        message: message,
+        // Send the combined history+current message string
+        message: combinedMessage,
         model: selectedAiModelName
+        // NO 'history' parameter here
     });
 
     if (selectedRagTag) {
         params.append('ragTag', selectedRagTag);
+        // Decide how RAG interacts with history prepending.
+        // Does the backend RAG process need the raw message or the combined one?
+        // Assuming backend handles RAG based on the full 'message' param for now.
         url = `${base}/generate_stream_rag?${params.toString()}`;
     } else {
         url = `${base}/generate_stream?${params.toString()}`;
     }
+    // --- END MODIFICATION ---
 
-    console.log("Streaming URL:", url);
+    console.log("Streaming URL (Workaround):", url); // URL will have a long 'message' param
+    console.log("Combined Message sent:", combinedMessage); // Log the combined string
 
     currentEventSource = new EventSource(url);
-    let accumulatedContent = ''; // Store raw content including <think> tags
+    let accumulatedContent = '';
     let tempMessageWrapper = null;
     let streamEnded = false;
+    const messageId = `ai-message-${Date.now()}`;
 
     // --- Create Unified Placeholder ---
-    // 如果 chatArea 是隐藏的，说明现在显示的是 welcomeMessage，需要切换
     if (chatArea.style.display === 'none') {
-        chatArea.style.display = 'block'; // 或者 'flex'
+        chatArea.style.display = 'block';
         welcomeMessage.style.display = 'none';
     }
-    const messageId = `ai-message-${Date.now()}`; // Unique ID for this message bubble
     tempMessageWrapper = document.createElement('div');
     tempMessageWrapper.className = 'flex w-full mb-4 message-bubble justify-start';
     tempMessageWrapper.id = messageId;
-    // Create the basic structure, content wrapper will be modified if <think> tags appear
     tempMessageWrapper.innerHTML = `
         <div class="flex gap-3 max-w-4xl w-full">
              <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
@@ -561,10 +603,17 @@ function startEventStream(message) {
     `;
     chatArea.appendChild(tempMessageWrapper);
     let messageContentWrapper = tempMessageWrapper.querySelector('.message-content-wrapper');
-    let hasInjectedDetails = false; // Flag to track if <details> structure is active
-    requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
+    let hasInjectedDetails = false;
+    requestAnimationFrame(() => {
+        chatArea.scrollTop = chatArea.scrollHeight;
+    });
 
-    currentEventSource.onmessage = function(event) {
+
+    // The rest of the onmessage, onerror, DOM handling logic remains the same
+    // as in the previous snippet. The AI's response (accumulatedContent)
+    // is still processed and displayed identically.
+    currentEventSource.onmessage = function (event) {
+        // ... (SAME onmessage logic as before - handling stream data, <think> tags, DOM updates) ...
         if (streamEnded) return;
 
         try {
@@ -575,74 +624,67 @@ function startEventStream(message) {
                 accumulatedContent += newContent;
 
                 // --- Process Accumulated Content ---
-                const thinkRegex = /<think>(.*?)<\/think>/gs; // Regex to find think tags globally and capture content
+                const thinkRegex = /<think>(.*?)<\/think>/gs;
                 let thinkingSteps = '';
                 let match;
-                // Important: Create a *new* RegExp object or reset lastIndex if reusing a global regex in a loop
                 const localThinkRegex = /<think>(.*?)<\/think>/gs;
                 while ((match = localThinkRegex.exec(accumulatedContent)) !== null) {
-                    // Append captured group (the content inside <think>)
-                    // Add a newline between separate <think> blocks if desired
                     thinkingSteps += match[1] + '\n';
                 }
-                thinkingSteps = thinkingSteps.trim(); // Clean up extra whitespace
-
-                // Get final answer by removing all <think>...</think> blocks
+                thinkingSteps = thinkingSteps.trim();
                 const finalAnswer = accumulatedContent.replace(/<think>.*?<\/think>/gs, '').trim();
 
                 // --- Update DOM Dynamically ---
                 messageContentWrapper = document.getElementById(messageId)?.querySelector('.message-content-wrapper');
-                if (!messageContentWrapper) { console.error("Message wrapper not found!"); return; } // Safety check
+                if (!messageContentWrapper) {
+                    console.error("Message wrapper not found!");
+                    return;
+                }
 
                 if (thinkingSteps && !hasInjectedDetails) {
-                    // First time we detect thinking steps: Inject the <details> structure
                     messageContentWrapper.innerHTML = `
-                        <details class="thinking-process" open> 
+                        <details class="thinking-process" open>
                             <summary class="cursor-pointer text-sm text-gray-600 hover:text-gray-800 mb-2 focus:outline-none select-none">
                                 思考过程... <span class="text-xs opacity-70">(点击展开/折叠)</span>
                             </summary>
                             <div class="thinking-steps-content markdown-body border-t border-gray-100 pt-2 pl-2 text-xs opacity-80 min-h-[20px]">
-                               
+
                             </div>
                         </details>
                         <div class="final-answer markdown-body pt-3">
-                           
+
                         </div>
                     `;
-                    hasInjectedDetails = true; // Mark that we've switched to the details structure
+                    hasInjectedDetails = true;
                 }
 
                 // --- Populate Content ---
                 if (hasInjectedDetails) {
-                    // We are using the <details> structure
                     const thinkingStepsDiv = messageContentWrapper.querySelector('.thinking-steps-content');
                     const finalAnswerDiv = messageContentWrapper.querySelector('.final-answer');
 
                     if (thinkingStepsDiv) {
-                        // Update thinking steps, include cursor
                         thinkingStepsDiv.innerHTML = sanitizeHTML(marked.parse(thinkingSteps + '<span class="streaming-cursor animate-pulse">▋</span>'));
                         applyHighlightingAndCopyButtons(thinkingStepsDiv);
                     }
                     if (finalAnswerDiv) {
-                        // Update final answer (no cursor needed here unless it's the only thing streaming)
-                        // Show placeholder if final answer is empty but thinking steps exist
                         finalAnswerDiv.innerHTML = finalAnswer
                             ? sanitizeHTML(marked.parse(finalAnswer))
-                            : '<span class="text-gray-400 text-sm">正在处理...</span>'; // Placeholder
+                            : '<span class="text-gray-400 text-sm">正在处理...</span>';
                         applyHighlightingAndCopyButtons(finalAnswerDiv);
                     }
                 } else {
-                    // No thinking steps detected yet, update the main wrapper directly
-                    // Only finalAnswer content exists here, add cursor
                     messageContentWrapper.innerHTML = sanitizeHTML(marked.parse(finalAnswer + '<span class="streaming-cursor animate-pulse">▋</span>'));
                     applyHighlightingAndCopyButtons(messageContentWrapper);
                 }
 
-                requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
+                requestAnimationFrame(() => {
+                    chatArea.scrollTop = chatArea.scrollHeight;
+                });
             }
 
             // --- Handle Stream End ---
-            if (data.result?.metadata?.finishReason === 'stop') {
+            if (data.result?.metadata?.finishReason === 'stop' || data.result?.metadata?.finishReason === 'STOP') {
                 streamEnded = true;
                 currentEventSource.close();
 
@@ -659,43 +701,47 @@ function startEventStream(message) {
 
                 // --- Final DOM Update ---
                 messageContentWrapper = document.getElementById(messageId)?.querySelector('.message-content-wrapper');
-                if (!messageContentWrapper) { console.error("Message wrapper not found for final update!"); return; }
+                if (!messageContentWrapper) {
+                    console.error("Message wrapper not found for final update!");
+                    return;
+                }
 
-                // Remove any remaining cursors
                 messageContentWrapper.querySelectorAll('.streaming-cursor').forEach(c => c.remove());
 
                 if (finalThinkingSteps) {
-                    // Ensure the <details> structure is present if it wasn't added during stream (e.g., very short response)
                     if (!hasInjectedDetails) {
                         messageContentWrapper.innerHTML = `
                             <details class="thinking-process" open>
-                                <summary>...</summary>
-                                <div class="thinking-steps-content"></div>
+                                <summary>思考过程 <span class="text-xs opacity-70">(来自历史记录)</span></summary>
+                                <div class="thinking-steps-content markdown-body border-t border-gray-100 pt-2 pl-2 text-xs opacity-80"></div>
                             </details>
-                            <div class="final-answer"></div>
+                            <div class="final-answer markdown-body pt-3"></div>
                          `;
-                        // Re-select divs after innerHTML change
-                        hasInjectedDetails = true; // Technically true now
+                        hasInjectedDetails = true;
                     }
-
-                    // Update final content in the <details> structure
                     const thinkingStepsDiv = messageContentWrapper.querySelector('.thinking-steps-content');
                     const finalAnswerDiv = messageContentWrapper.querySelector('.final-answer');
 
                     if (thinkingStepsDiv) {
                         thinkingStepsDiv.innerHTML = sanitizeHTML(marked.parse(finalThinkingSteps));
                         applyHighlightingAndCopyButtons(thinkingStepsDiv);
-                    } else { console.error("Thinking steps div not found in final update!"); }
+                    } else {
+                        console.error("Thinking steps div not found in final update!");
+                    }
 
                     if (finalAnswerDiv) {
-                        finalAnswerDiv.innerHTML = finalFinalAnswer ? sanitizeHTML(marked.parse(finalFinalAnswer)) : ''; // Show empty if no final answer
+                        finalAnswerDiv.innerHTML = finalFinalAnswer ? sanitizeHTML(marked.parse(finalFinalAnswer)) : '';
                         applyHighlightingAndCopyButtons(finalAnswerDiv);
-                    } else { console.error("Final answer div not found in final update!"); }
+                    } else {
+                        console.error("Final answer div not found in final update!");
+                    }
+                    // Update summary text after completion
+                    const summaryElement = messageContentWrapper.querySelector('.thinking-process summary');
+                    if (summaryElement) summaryElement.innerHTML = `思考过程 <span class="text-xs opacity-70">(点击展开/折叠)</span>`;
+
 
                 } else {
-                    // No thinking steps in the final message, render only the final answer
                     messageContentWrapper.innerHTML = finalFinalAnswer ? sanitizeHTML(marked.parse(finalFinalAnswer)) : '';
-                    // Ensure markdown class is present if details structure wasn't used
                     if (!hasInjectedDetails) {
                         messageContentWrapper.classList.add('markdown-body');
                     }
@@ -703,11 +749,13 @@ function startEventStream(message) {
                 }
 
                 // --- Save the complete message (including <think> tags) ---
+                // IMPORTANT: Even with the workaround, save the ORIGINAL AI response
+                // (accumulatedContent) to localStorage, *including* any <think> tags,
+                // so the history display remains accurate. Don't save the combinedMessage.
                 if (currentChatId && accumulatedContent.trim()) {
                     const chatData = getChatData(currentChatId);
                     if (chatData) {
-                        // Store the original content with tags for accurate history rendering
-                        chatData.messages.push({ content: accumulatedContent, isAssistant: true });
+                        chatData.messages.push({content: accumulatedContent, isAssistant: true});
                         localStorage.setItem(`chat_${currentChatId}`, JSON.stringify(chatData));
                         updateChatList();
                     }
@@ -719,16 +767,12 @@ function startEventStream(message) {
             }
         } catch (e) {
             console.error('Error processing stream event:', e, event.data);
-            // Consider closing the stream on parse error?
-            // currentEventSource.close(); // Uncomment to close on error
-            // streamEnded = true;
-            // setStreamingState(false);
-            // Append an error message?
-            // appendMessage(`处理流数据时出错: ${e.message}`, true, false);
         }
+
     };
 
-    currentEventSource.onerror = function(error) {
+    currentEventSource.onerror = function (error) {
+        // ... (SAME onerror logic as before) ...
         console.error('EventSource encountered an error:', error);
         streamEnded = true;
         if (currentEventSource) {
@@ -736,29 +780,28 @@ function startEventStream(message) {
         }
 
         const errorText = '--- 抱歉，连接中断或发生错误 ---';
-        // Try to append error to the existing bubble if possible
         messageContentWrapper = document.getElementById(messageId)?.querySelector('.message-content-wrapper');
         if (messageContentWrapper) {
-            // Remove cursor if present
             messageContentWrapper.querySelectorAll('.streaming-cursor').forEach(c => c.remove());
-            // Append error message
             const errorP = document.createElement('p');
             errorP.className = 'text-red-500 text-sm font-semibold mt-2 border-t pt-2';
             errorP.textContent = errorText;
 
-            // Decide where to put the error: inside final-answer if details exist, otherwise directly in wrapper
             const finalAnswerDiv = messageContentWrapper.querySelector('.final-answer');
             if (finalAnswerDiv) {
-                // Clear placeholder if it exists
                 if (finalAnswerDiv.textContent.includes("正在处理")) finalAnswerDiv.innerHTML = '';
                 finalAnswerDiv.appendChild(errorP);
             } else {
-                // Clear placeholder if it exists
                 if (messageContentWrapper.textContent === '▋') messageContentWrapper.innerHTML = '';
                 messageContentWrapper.appendChild(errorP);
             }
+            // Update summary text in case of error during thinking display
+            const summaryElement = messageContentWrapper.querySelector('.thinking-process summary');
+            if (summaryElement && summaryElement.textContent.includes("思考过程...")) {
+                summaryElement.innerHTML = `思考过程 <span class="text-xs opacity-70">(已中断)</span>`;
+            }
+
         } else {
-            // Fallback if bubble wasn't created or found
             appendMessage(errorText, true, false);
         }
 

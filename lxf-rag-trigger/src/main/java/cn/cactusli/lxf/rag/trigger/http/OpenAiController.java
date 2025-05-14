@@ -1,7 +1,10 @@
 package cn.cactusli.lxf.rag.trigger.http;
 
 import cn.cactusli.lxf.rag.api.IAiService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -39,6 +42,9 @@ public class OpenAiController implements IAiService {
     @Resource
     private PgVectorStore pgVectorStore;
 
+    @Resource
+    private ObjectMapper objectMapper;
+
     /**
      * http://localhost:7080/api/v1/openai/generate?model=deepseek-r1:1.5b&message=你是？
      */
@@ -59,13 +65,45 @@ public class OpenAiController implements IAiService {
      */
     @GetMapping("generate_stream")
     @Override
-    public Flux<ChatResponse> generateStream(@RequestParam("model") String model, @RequestParam("message") String message) {
-        return openAiChatModel.stream(new Prompt(
-                message,
+    public Flux<ChatResponse> generateStream(
+            @RequestParam("model") String model,
+            @RequestParam("message") String currentMessage, // 为了清晰，重命名一下
+            @RequestParam(name = "history", required = false, defaultValue = "[]") String history // 接收 history JSON 字符串
+    ) {
+        List<Message> conversation = new ArrayList<>(); // 用于存储完整对话的列表
+
+        // 尝试解析 history JSON
+        try {
+            // 将 JSON 字符串解析为 Map 列表，每个 Map 代表一条消息
+            List<Map<String, String>> historyList = objectMapper.readValue(history, new TypeReference<List<Map<String, String>>>() {});
+            for (Map<String, String> msg : historyList) {
+                // 根据 'role' 创建相应的 Message 对象
+                if ("user".equalsIgnoreCase(msg.get("role"))) {
+                    conversation.add(new UserMessage(msg.get("content")));
+                } else if ("assistant".equalsIgnoreCase(msg.get("role"))) {
+                    // 如果历史记录中保存了 <think> 标签，也一并包含
+                    conversation.add(new AssistantMessage(msg.get("content")));
+                }
+            }
+        } catch (Exception e) {
+            // 记录错误或处理无效的 history JSON - 可以考虑返回一个错误的 Flux？
+            System.err.println("解析聊天历史 JSON 时出错: " + e.getMessage());
+            // 为简单起见，如果解析失败，则在没有历史记录的情况下继续
+        }
+
+        // 添加当前用户发送的消息
+        conversation.add(new UserMessage(currentMessage));
+
+        // 使用完整的对话历史创建 Prompt
+        Prompt prompt = new Prompt(
+                conversation, // 传入包含所有消息的 List<Message>
                 OllamaOptions.builder()
                         .model(model)
                         .build()
-        ));
+        );
+
+        // 将包含完整对话的 Prompt 发送给模型
+        return openAiChatModel.stream(prompt);
     }
 
     @GetMapping(value = "generate_stream_rag")

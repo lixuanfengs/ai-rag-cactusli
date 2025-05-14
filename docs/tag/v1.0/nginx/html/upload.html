@@ -3,28 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文件上传</title>
+    <title>文件上传 - AiRagKnowledge</title>
     <script src="js/axios.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 加载动画 */
-        .loader {
-            animation: spin 1s linear infinite;
-        }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .loader {
+            animation: spin 1.5s linear infinite;
+        }
+
+        /* 拖放区域高亮 */
+        .drag-over {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        /* 文件项目动画 */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .file-item {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+
+        /* 按钮点击反馈 */
+        .btn-active {
+            transform: scale(0.98);
+        }
     </style>
 </head>
-<body class="flex justify-center items-center min-h-screen bg-gray-100">
+<body class="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
 
-<!-- 上传文件模态框 -->
-<div class="bg-white p-6 rounded-lg shadow-lg w-96 relative">
-    <!-- 加载遮罩层 -->
-    <div id="loadingOverlay" class="hidden absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg">
+<div class="fixed top-0 left-0 right-0 border-b shadow-sm bg-white px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        <h1 class="text-lg font-semibold">文件上传 - AiRagKnowledge</h1>
+    </div>
+    <a href="index.html" class="text-blue-600 hover:text-blue-700 transition-colors duration-150 flex items-center gap-1 text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        返回主页
+    </a>
+</div>
+
+<div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md relative mt-16">
+    <div id="loadingOverlay" class="hidden absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center rounded-xl z-50">
         <div class="loader mb-4">
-            <svg class="h-8 w-8 text-blue-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg class="h-12 w-12 text-blue-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 <path d="M12 18V22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 <path d="M4.93 4.93L7.76 7.76" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -35,124 +95,400 @@
                 <path d="M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
         </div>
-        <p class="text-gray-600">文件上传中，请稍候...</p>
+        <p class="text-gray-700 font-medium">文件处理中，请稍候...</p>
+        <p class="text-gray-500 text-sm mt-2">正在解析文件内容并建立知识索引</p>
+        <div class="w-48 h-2 bg-gray-200 rounded-full mt-4 overflow-hidden">
+            <div id="progressBar" class="h-full bg-blue-500 rounded-full" style="width: 0%"></div>
+        </div>
     </div>
 
-    <h2 class="text-xl font-semibold text-center mb-4">添加知识</h2>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <!-- 知识标题输入 -->
-        <div class="mb-4">
-            <label for="title" class="block text-sm font-medium text-gray-700">知识标题</label>
-            <input type="text" id="title" name="title" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="输入知识标题" required />
+    <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800">添加知识库</h2>
+        <p class="text-gray-500 mt-1">上传文件并添加到您的知识库中</p>
+    </div>
+
+    <form id="uploadForm" class="space-y-5" enctype="multipart/form-data">
+        <div>
+            <label for="title" class="block text-sm font-medium text-gray-700 mb-1">知识库名称</label>
+            <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all duration-200"
+                    placeholder="为这组知识命名（例如：产品手册）"
+                    required
+            />
         </div>
 
-        <!-- 上传文件区域 -->
-        <div class="mb-4">
-            <label for="file" class="block text-sm font-medium text-gray-700">上传文件</label>
-            <div class="mt-2 border-dashed border-2 border-gray-300 p-4 text-center text-gray-500">
-                <input type="file" id="file" name="file" accept=".pdf,.csv,.txt,.md,.sql,.java" class="hidden" multiple />
-                <label for="file" class="cursor-pointer">
-                    <div>将文件拖到此处或点击上传</div>
-                    <div class="mt-2 text-sm text-gray-400">支持的文件类型：.pdf, .csv, .txt, .md, .sql, .java</div>
-                </label>
+        <div>
+            <label for="file" class="block text-sm font-medium text-gray-700 mb-1">上传文件 (可多选)</label> <div id="dropArea" class="mt-1 border-dashed border-2 border-gray-300 rounded-lg p-6 text-center transition-all duration-200 hover:bg-gray-50">
+            <input type="file" id="file" name="file" accept=".pdf,.csv,.txt,.md,.sql,.java" class="hidden" multiple />
+            <label for="file" class="cursor-pointer block">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span class="text-blue-600 font-medium">点击选择文件</span>
+                <span class="text-gray-500"> 或将文件拖放到此处</span>
+                <p class="mt-2 text-sm text-gray-500">支持 PDF, CSV, TXT, MD, SQL, JAVA 等格式</p>
+            </label>
+        </div>
+        </div>
+
+        <div id="fileListContainer" class="hidden">
+            <h3 class="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                已选择的文件
+            </h3>
+            <div class="max-h-40 overflow-y-auto bg-gray-50 rounded-lg">
+                <ul id="fileList" class="divide-y divide-gray-200"></ul>
             </div>
         </div>
 
-        <!-- 待上传文件列表 -->
-        <div class="mb-4" id="fileList">
-            <ul class="list-disc pl-5 text-gray-700"></ul>
-        </div>
-
-        <!-- 提交按钮 -->
-        <div class="flex justify-center">
-            <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">
-                提交
+        <div class="pt-2">
+            <button
+                    type="submit"
+                    id="submitBtn"
+                    class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50 font-medium transition-all duration-200 flex items-center justify-center gap-2"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                上传并创建知识库
             </button>
         </div>
     </form>
+
+    <div class="mt-6 text-center text-sm text-gray-500 space-y-1">
+        <p>通过上传文件，AI 将能够基于这些知识回答问题</p>
+        <p>文件将被索引并用于检索相关信息</p>
+    </div>
 </div>
 
 <script>
-    const fileListElement = document.querySelector('#fileList ul');
+    const fileListElement = document.getElementById('fileList');
+    const fileListContainer = document.getElementById('fileListContainer');
+    const dropArea = document.getElementById('dropArea');
+    const fileInput = document.getElementById('file');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const progressBar = document.getElementById('progressBar');
+    const submitBtn = document.getElementById('submitBtn');
 
-     // 文件选择变更处理
-     document.getElementById('file').addEventListener('change', function (e) {
-       const files = Array.from(e.target.files);
-       fileListElement.innerHTML = ''; // 清空列表
-       files.forEach((file, index) => {
-         const listItem = document.createElement('li');
-         listItem.className = 'flex justify-between items-center';
-         listItem.innerHTML = `
-           <span>${file.name}</span>
-           <button type="button" class="text-red-500 hover:text-red-700" onclick="removeFile(${index})">删除</button>
-         `;
-         fileListElement.appendChild(listItem);
-       });
-     });
+    // 随机进度模拟函数
+    function simulateProgress() {
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) {
+                progress = 90; // 最高到90%，剩下的10%留给完成时
+                clearInterval(interval);
+            }
+            progressBar.style.width = `${progress}%`;
+        }, 300);
 
-     // 移除文件
-     function removeFile(index) {
-       const input = document.getElementById('file');
-       let files = Array.from(input.files);
-       files.splice(index, 1);
+        return interval;
+    }
 
-       // 创建一个新的DataTransfer对象
-       const dataTransfer = new DataTransfer();
-       files.forEach(file => dataTransfer.items.add(file));
+    // 拖放相关事件
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
 
-       // 更新文件输入对象的文件列表
-       input.files = dataTransfer.files;
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
-       // 更新文件列表UI
-       const fileListItems = fileListElement.children;
-       fileListItems[index].remove();
-     }
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+    });
 
-     // 提交事件处理
-     document.getElementById('uploadForm').addEventListener('submit', function (e) {
-       e.preventDefault();
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+    });
 
-       const loadingOverlay = document.getElementById('loadingOverlay');
-       const input = document.getElementById('file');
-       const files = Array.from(input.files);
+    function highlight() {
+        dropArea.classList.add('drag-over');
+    }
 
-       if (files.length === 0) {
-         alert('请先选择一个文件');
-         return;
-       }
+    function unhighlight() {
+        dropArea.classList.remove('drag-over');
+    }
 
-       // 显示加载状态
-       loadingOverlay.classList.remove('hidden');
+    // 处理拖放文件
+    dropArea.addEventListener('drop', handleDrop, false);
 
-       const formData = new FormData();
-       formData.append('ragTag', document.getElementById('title').value);
-       files.forEach(file => formData.append('file', file));
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files; // 可以获取多个文件
+        fileInput.files = files;
 
-       axios.post('http://117.72.115.188:8090/api/v1/rag/file/upload', formData)
-         .then(response => {
-           if (response.data.code === '0000') {
-             // 成功提示并关闭窗口
-             setTimeout(() => {
-               alert('上传成功，窗口即将关闭');
-               window.close();
-             }, 500);
-           } else {
-             throw new Error(response.data.info || '上传失败');
-           }
-         })
-         .catch(error => {
-           alert(error.message);
-         })
-         .finally(() => {
-           // 隐藏加载状态
-           loadingOverlay.classList.add('hidden');
+        // 触发change事件以更新UI
+        const event = new Event('change');
+        fileInput.dispatchEvent(event);
+    }
 
-           // 清空表单（无论成功与否）
-           input.value = '';
-           document.getElementById('title').value = '';
-           fileListElement.innerHTML = '';
-         });
-     });
+    // 文件选择变更处理
+    fileInput.addEventListener('change', function (e) {
+        const files = Array.from(e.target.files); // 获取所有选择的文件
+        fileListElement.innerHTML = ''; // 清空旧列表
+
+        if (files.length > 0) {
+            fileListContainer.classList.remove('hidden'); // 显示列表容器
+
+            files.forEach((file, index) => { // 遍历每个文件
+                let fileIcon = getFileIcon(file.name);
+                let fileSize = formatFileSize(file.size);
+
+                const listItem = document.createElement('li');
+                listItem.className = 'py-2 px-3 flex justify-between items-center file-item hover:bg-gray-100';
+                listItem.innerHTML = `
+                    <div class="flex items-center gap-3 text-gray-700">
+                        ${fileIcon}
+                        <div>
+                            <div class="font-medium">${file.name}</div>
+                            <div class="text-xs text-gray-500">${fileSize}</div>
+                        </div>
+                    </div>
+                    <button type="button" class="text-gray-500 hover:text-red-500 transition-colors duration-150" onclick="removeFile(${index})">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                `;
+                fileListElement.appendChild(listItem);
+            });
+        } else {
+            fileListContainer.classList.add('hidden'); // 如果没有文件则隐藏列表
+        }
+    });
+
+    // 根据文件类型获取图标
+    function getFileIcon(fileName) {
+        const extension = fileName.split('.').pop().toLowerCase();
+        let iconColor = 'text-blue-500';
+        let iconPath = '';
+
+        switch(extension) {
+            case 'pdf':
+                iconColor = 'text-red-500';
+                iconPath = 'M14 3v4a1 1 0 001 1h4M17 21h-10a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z';
+                break;
+            case 'csv':
+                iconColor = 'text-green-500';
+                iconPath = 'M10 3v4a1 1 0 001 1h4M14 3v4a1 1 0 001 1h2m-2 3v4m0 4v.01M8 7v4m0 4v4';
+                break;
+            case 'txt':
+            case 'md':
+                iconColor = 'text-gray-500';
+                iconPath = 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
+                break;
+            case 'sql':
+                iconColor = 'text-purple-500';
+                iconPath = 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4';
+                break;
+            case 'java':
+                iconColor = 'text-orange-500';
+                iconPath = 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4';
+                break;
+            default:
+                iconPath = 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z';
+        }
+
+        return `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${iconColor}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" />
+                </svg>`;
+    }
+
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 移除文件 (支持多文件列表中的移除)
+    function removeFile(index) {
+        const input = document.getElementById('file');
+        let files = Array.from(input.files); // 获取当前文件列表
+        files.splice(index, 1); // 移除指定索引的文件
+
+        // 创建一个新的DataTransfer对象来更新input.files
+        const dataTransfer = new DataTransfer();
+        files.forEach(file => dataTransfer.items.add(file)); // 将剩余文件添加回去
+
+        // 更新文件输入对象的文件列表
+        input.files = dataTransfer.files;
+
+        // 更新文件列表UI (通过触发change事件是一种简单的方式)
+        // 或者直接操作DOM移除对应列表项并重新计算索引（如下）
+        const fileListItems = fileListElement.children;
+        if (fileListItems[index]) {
+            const itemToRemove = fileListItems[index];
+            itemToRemove.style.height = '0';
+            itemToRemove.style.opacity = '0';
+            itemToRemove.style.overflow = 'hidden';
+            itemToRemove.style.paddingTop = '0';
+            itemToRemove.style.paddingBottom = '0';
+            itemToRemove.style.marginTop = '0';
+            itemToRemove.style.marginBottom = '0';
+            itemToRemove.style.border = 'none';
+            itemToRemove.style.transition = 'all 0.3s ease-out';
+
+            setTimeout(() => {
+                itemToRemove.remove();
+                // 更新后续按钮的onclick事件中的索引
+                updateRemoveButtonIndices();
+                // 如果没有文件了，隐藏文件列表容器
+                if (fileListElement.children.length === 0) {
+                    fileListContainer.classList.add('hidden');
+                }
+            }, 300);
+        }
+    }
+
+    // 辅助函数：更新移除按钮的索引
+    function updateRemoveButtonIndices() {
+        const buttons = fileListElement.querySelectorAll('button');
+        buttons.forEach((button, newIndex) => {
+            button.setAttribute('onclick', `removeFile(${newIndex})`);
+        });
+    }
+
+
+    // 按钮点击效果
+    submitBtn.addEventListener('mousedown', function() {
+        this.classList.add('btn-active');
+    });
+
+    document.addEventListener('mouseup', function() {
+        if(submitBtn.classList.contains('btn-active')) {
+            submitBtn.classList.remove('btn-active');
+        }
+    });
+    submitBtn.addEventListener('mouseleave', function() { // 处理鼠标移出按钮的情况
+        if(this.classList.contains('btn-active')) {
+            this.classList.remove('btn-active');
+        }
+    });
+
+    // 提交事件处理
+    document.getElementById('uploadForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const input = document.getElementById('file');
+        const files = Array.from(input.files); // 获取所有待上传的文件
+
+        if (files.length === 0) {
+            // 使用更友好的提示
+            dropArea.classList.add('border-red-300', 'bg-red-50');
+            // 可以添加一个提示信息元素
+            const errorMsg = document.createElement('p');
+            errorMsg.textContent = '请至少选择一个文件！';
+            errorMsg.className = 'text-red-500 text-sm mt-2';
+            dropArea.appendChild(errorMsg);
+
+            setTimeout(() => {
+                dropArea.classList.remove('border-red-300', 'bg-red-50');
+                if(dropArea.contains(errorMsg)){
+                    dropArea.removeChild(errorMsg);
+                }
+            }, 2000);
+
+            return;
+        }
+
+        // 显示加载状态
+        loadingOverlay.classList.remove('hidden');
+
+        // 开始模拟上传进度
+        const progressInterval = simulateProgress();
+
+        const formData = new FormData();
+        formData.append('ragTag', document.getElementById('title').value);
+        // 关键：循环添加所有文件到FormData
+        files.forEach(file => {
+            formData.append('file', file) // 使用相同的 name 'file'
+        });
+
+        // 发送包含所有文件的请求
+        axios.post('http://192.168.1.218:7080/api/v1/rag/file/upload', formData, {
+            // 如果需要监听上传进度，可以添加 onUploadProgress
+            onUploadProgress: progressEvent => {
+                // 可以根据 progressEvent 更新真实的上传进度条，而不是模拟
+                // const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                // console.log(`Upload Progress: ${percentCompleted}%`);
+                // 停止模拟进度条，如果需要显示真实进度
+                // clearInterval(progressInterval);
+                // progressBar.style.width = `${percentCompleted}%`;
+            }
+        })
+            .then(response => {
+                clearInterval(progressInterval); // 清除模拟进度
+
+                if (response.data.code === '1000') {
+                    progressBar.style.width = '100%';
+                    // 成功提示并关闭窗口
+                    setTimeout(() => {
+                        loadingOverlay.innerHTML = `
+                            <div class="bg-green-100 rounded-full p-3 mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                            <p class="text-gray-800 font-medium">上传成功！</p>
+                            <p class="text-gray-500 text-sm mt-2">知识库已创建，窗口即将关闭</p>
+                        `;
+
+                        setTimeout(() => {
+                            window.close();
+                        }, 1500);
+                    }, 500);
+                } else {
+                    throw new Error(response.data.info || '上传失败');
+                }
+            })
+            .catch(error => {
+                clearInterval(progressInterval); // 清除模拟进度
+
+                // 显示错误提示
+                loadingOverlay.innerHTML = `
+                    <div class="bg-red-100 rounded-full p-3 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <p class="text-gray-800 font-medium">上传失败</p>
+                    <p class="text-gray-500 text-sm mt-2">${error.message || '未知错误'}</p>
+                    <button id="closeErrorBtn" class="mt-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 transition-colors duration-150">返回</button>
+                `;
+
+                // 添加关闭错误提示的事件
+                document.getElementById('closeErrorBtn').addEventListener('click', function() {
+                    loadingOverlay.classList.add('hidden');
+                    // 重置加载动画和进度条以备下次使用
+                    loadingOverlay.innerHTML = `
+                        <div class="loader mb-4">...</div> <p class="text-gray-700 font-medium">文件处理中，请稍候...</p>
+                        <p class="text-gray-500 text-sm mt-2">正在解析文件内容并建立知识索引</p>
+                        <div class="w-48 h-2 bg-gray-200 rounded-full mt-4 overflow-hidden">
+                            <div id="progressBar" class="h-full bg-blue-500 rounded-full" style="width: 0%"></div>
+                        </div>`;
+                    // 需要重新获取 progressBar 元素
+                    const newProgressBar = document.getElementById('progressBar');
+                    if(newProgressBar) newProgressBar.style.width = '0%';
+                });
+            });
+    });
 </script>
 </body>
 </html>

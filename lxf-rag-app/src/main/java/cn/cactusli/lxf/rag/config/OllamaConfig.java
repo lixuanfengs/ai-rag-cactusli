@@ -1,11 +1,13 @@
 package cn.cactusli.lxf.rag.config;
 
+import org.springframework.ai.document.MetadataMode;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
+import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
@@ -30,7 +32,7 @@ public class OllamaConfig {
 
     @Bean
     public OllamaApi ollamaApi(@Value("${spring.ai.ollama.base-url}") String baseUrl) {
-        return new OllamaApi(baseUrl);
+        return OllamaApi.builder().baseUrl(baseUrl).build();
     }
 
     @Bean
@@ -110,7 +112,7 @@ public class OllamaConfig {
         if ("nomic-embed-text".equalsIgnoreCase(model)) {
             OllamaEmbeddingModel embeddingModel = OllamaEmbeddingModel.builder()
                     // 如果 nomic-embed-text 和 deepseek-r1 不在同一个 ollama 中
-                    .ollamaApi(new OllamaApi("http://192.168.1.23:11434/"))
+                    .ollamaApi( OllamaApi.builder().baseUrl("http://192.168.1.23:11434/").build())
                     .defaultOptions(
                             OllamaOptions.builder()
                                     .model(NOMIC_EMBED_TEXT)
@@ -118,7 +120,12 @@ public class OllamaConfig {
                     .build();
             return PgVectorStore.builder(jdbcTemplate, embeddingModel).vectorTableName("vector_store_ollama_deepseek").build();
         } else {
-            OpenAiEmbeddingModel openAiEmbeddingModel = new OpenAiEmbeddingModel(openAiApi);
+            OpenAiEmbeddingModel openAiEmbeddingModel =
+                    new OpenAiEmbeddingModel(openAiApi,
+                            MetadataMode.ALL,
+                            OpenAiEmbeddingOptions
+                                    .builder()
+                                    .model(model).build());
             return PgVectorStore.builder(jdbcTemplate, openAiEmbeddingModel)
                     .vectorTableName("vector_store_openai")
                     .build();
